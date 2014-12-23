@@ -121,7 +121,7 @@ function BV:_Bind(entity, key, type, settings)
 
 	b:Init();
 	local value = self[key];
-	if value then
+	if value ~= nil then
 		b:SetValue(value);
 	end
 
@@ -174,14 +174,14 @@ function BV:_Apply(fromBinding, fromSync)
 
 	for _, binding in pairs(self._Bindings) do
 		local value = values[binding.Key];
-		if fromBinding ~= binding and value then
+		if fromBinding ~= binding and value ~= nil then
 			binding:SetValue(value);
 		end
 	end
 
 	for _, listener in pairs(self._Listeners) do
 		local value = values[listener.Key];
-		if value then
+		if value ~= nil then
 			listener.Function(self, listener.Key, value);
 		end
 	end
@@ -378,6 +378,18 @@ function LABEL:SetValue(value)
 	control:SetText(value);
 end
 BV.RegisterBindType("Label", LABEL);
+
+local VISIBILITY = setmetatable({}, VALUE);
+function VISIBILITY:Init()
+	local control = self.Entity;
+	control.OldSetVisible = control.SetVisible;
+	control.SetVisible = function(control, value)
+		control.OldSetVisible(control, value);
+		self:OnValueChanged(value);
+	end
+	self.Settings.ValueFunction = "SetVisible";
+end
+BV.RegisterBindType("Visibility", VISIBILITY);
 
 local CHECKBOX = setmetatable({}, VALUE);
 function CHECKBOX:Init()
