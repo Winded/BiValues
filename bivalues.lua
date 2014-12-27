@@ -382,10 +382,12 @@ BV.RegisterBindType("Label", LABEL);
 local VISIBILITY = setmetatable({}, VALUE);
 function VISIBILITY:Init()
 	local control = self.Entity;
-	control.OldSetVisible = control.SetVisible;
-	control.SetVisible = function(control, value)
-		control.OldSetVisible(control, value);
-		self:OnValueChanged(value);
+	if not control.OldSetVisible then
+		control.OldSetVisible = control.SetVisible;
+		control.SetVisible = function(control, value)
+			control.OldSetVisible(control, value);
+			self:OnValueChanged(value);
+		end
 	end
 	self.Settings.ValueFunction = "SetVisible";
 end
@@ -399,12 +401,68 @@ function CHECKBOX:Init()
 end
 BV.RegisterBindType("CheckBox", CHECKBOX);
 
+local LISTVIEW = {};
+function LISTVIEW:Init()
+	-- Do nothing
+end
+function LISTVIEW:Remove()
+	-- Do nothing
+end
+function LISTVIEW:SetValue(value)
+	local control = self.Entity;
+	control:ClearSelection();
+	control:Clear();
+	if value == nil then
+		return;
+	end
+	for k, v in pairs(value) do
+		if type(v) == "table" then
+			control:AddLine(unpack(v));
+		elseif type(v) == "string" then
+			control:AddLine(v);
+		end
+	end
+end
+BV.RegisterBindType("ListView", LISTVIEW);
+
+local LVSELECT = setmetatable({}, VALUE);
+function LVSELECT:Init()
+	self.Settings.ColumnID = self.Settings.ColumnID or 1;
+	local control = self.Entity;
+	control.OnRowSelected = function(control, lineID, line)
+		local value = line:GetValue(self.Settings.ColumnID);
+		self:OnValueChanged(value);
+	end
+end
+function LVSELECT:Remove()
+	local control = self.Entity;
+	control.OnRowSelected = function() end
+end
+function LVSELECT:SetValue(value)
+	local control = self.Entity;
+	control:ClearSelection();
+	local func = control.OnRowSelected;
+	control.OnRowSelected = function() end
+	for i, line in pairs(control:GetLines()) do
+		local v = line:GetValue(self.Settings.ColumnID);
+		if v == value then
+			control:SelectItem(line);
+			break;
+		end
+	end
+	control.OnRowSelected = func;
+end
+BV.RegisterBindType("ListViewSelect", LVSELECT);
+
 BV.ValueBind = VALUE;
 BV.NumberBind = NUMBER;
 BV.TextBind = TEXT;
 BV.ButtonBind = BUTTON;
 BV.LabelBind = LABEL;
+BV.VisibilityBind = VISIBILITY;
 BV.CheckBoxBind = CHECKBOX;
+BV.ListViewBind = LISTVIEW;
+BV.ListViewSelectBind = LVSELECT;
 
 ---
 -- Meta table setup
