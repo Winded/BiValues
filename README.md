@@ -49,11 +49,19 @@ hook.Add("InitPostEntity", "BiValuesSetup", function()
 	BuildVGUI();
 
 end);
+<<<<<<< HEAD
 ```
 
 On server, we need to initialize the container when the player has first spawned, to ensure we have the player entity available.
 
 ```lua
+=======
+´´´
+
+On server, we need to initialize the container when the player has first spawned, to ensure we have the player entity available.
+
+´´´lua
+>>>>>>> f9ef09b23e82cf9e2383283edad1a87e3a4313cf
 hook.Add("PlayerInitialSpawn", "BiValuesSetup", function(player)
 
     -- Default values to set when creating the container.
