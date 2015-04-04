@@ -79,7 +79,7 @@ function BV.New(players, id, settings, defaultValues)
 		players = {players};
 	end
 
-	if settings.IsPrivate and players and #players == 1 then
+	if settings.IsPrivate and not game.SinglePlayer() and players and #players == 1 then
 		id = id .. players[1]:SteamID64();
 	end
 
@@ -120,6 +120,17 @@ function BV:_GetPlayers()
 		return {LocalPlayer()};
 	end
 	return self._Players or player.GetAll();
+end
+
+-- Convenience method for returning the first player in the owner list.
+function BV:_GetPlayer()
+	if CLIENT then
+		return LocalPlayer();
+	end
+	if not self._Players or #self._Players == 0 then
+		return nil;
+	end
+	return self._Players[1];
 end
 
 function BV:_Bind(entity, key, type, settings)
