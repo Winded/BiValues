@@ -673,7 +673,7 @@ function CONVAR:OnValueChanged(value)
 	else
 		value = tostring(value);
 	end
-	if not value then
+	if value == nil then
 		return;
 	end
 	container:_ApplyFromBind(self, key, value);
@@ -681,8 +681,9 @@ end
 function CONVAR:SetValue(value)
 	local convar = self.Entity;
 	cvars.RemoveChangeCallback(convar:GetName(), self.CallbackIdentifier);
-	if value then
-		RunConsoleCommand(convar:GetName(), value);
+	local valueType = self.Settings.ValueType or "string";
+	if value ~= nil then
+		RunConsoleCommand(convar:GetName(), tostring(value));
 	end
 	cvars.AddChangeCallback(convar:GetName(), function(name, oldValue, newValue)
 		self:OnValueChanged(newValue);

@@ -136,7 +136,7 @@ local function CreateContainer(player)
 
 	if CLIENT then
 		for key, val in pairs(DefaultValues) do
-			data:_BindToConVar(key, CreateConVar("bvet_" .. key:lower(), val, FCVAR_NONE), {ValueType = "number"});
+			data:_BindToConVar(key, CreateClientConVar("bvet_" .. key:lower(), val, false), {ValueType = "number"});
 		end
 	end
 
