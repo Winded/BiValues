@@ -71,7 +71,7 @@ function BV.New(players, id, settings, defaultValues)
 		defaultValues = settings;
 		settings = id;
 		id = players;
-		players = LocalPlayer();
+		players = nil;
 	end
 
 	-- Check parameters
@@ -79,8 +79,14 @@ function BV.New(players, id, settings, defaultValues)
 		players = {players};
 	end
 
-	if settings.IsPrivate and not game.SinglePlayer() and players and #players == 1 then
-		id = id .. players[1]:SteamID64();
+	if settings.IsPrivate and not game.SinglePlayer() and ((players and #players == 1) or CLIENT) then
+		local pl;
+		if CLIENT then
+			pl = LocalPlayer();
+		else
+			pl = players[1];
+		end
+		id = id .. pl:SteamID64();
 	end
 
 	local bv = setmetatable({}, BV);

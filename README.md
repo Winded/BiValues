@@ -11,21 +11,28 @@ the server, so you can have consistent variables between the slider, clientside 
 ## How it works
 The BiValues framework consists of three different object types: containers, bindings and listeners.
 
- - _Containers_ are the core objects that contain your variables. They handle syncrhonizing between client and server as well as interaction with bindings and listeners. Containers are player-specific, so each container has an owner and should not be used to store data for multiple players.
+ - _Containers_ are the core objects that contain your variables. They handle syncrhonizing between clients and server as well as interaction with bindings and listeners. Containers have unique IDs to identify them within the network and are stored in _BiValues.Containers_
  - _Bindings_ handle the transmission of a variable to and from entities, VGUI controls or any kind of other interactable objects. Bind types determine the functionality of a binding to make sure it handles the transmission as it's supposed to.
  - _Listeners_ are one-way callbacks that are hooked to a single variable in the container. They are used to perform any actions required whenever a variable is changed in the container, either from binding, synchronizing or from code.
+
+### Container ownership
+Starting from version 0.2, containers are not player-specific anymore, and are stored in _BiValues.Containers_ instead of _Player.BiValueContainers_. Instead, containers now have a list of players as owners, which can be received (and edited) from __GetPlayers()_ function. Only the owners of a container receive sync messages from the server, and are the only ones allowed to send sync messages to the server. When a container doesn't have any owner, all players are the owners of the container.
+
+If you set _IsPrivate_ setting to true on a container, and set a single player as the owner of the container, the container becomes "private" meaning the ID of the container is appended with the SteamID of the player, making sure the container is unique and for that player only. You can also do this manually, but the _IsPrivate_ setting can be used for convenience.
+
+On clientside, the ownership of a container is irrelevant and not used, so the _BiValues.New_ function does not take the _players_ parameter.
 
 ### Visual representation
 TBD
 
 ## Installation
-You can either copy the _bivalues.lua_ file to lua/autorun in your addon folder, or you can clone the repository to lua/bivalues and then include the lua script in your own autorun script. If your project has its own git repository, you can add this as a submodule.
+You can either copy the _bivalues.lua_ file to lua/autorun in your addon folder, or you can clone the repository to lua/bivalues and then include the lua script in your own autorun script. If your project has its own git repository, you can add this as a submodule. Be sure to add the _.git_ folder and _README.md_ to the ignore list in _addon.json_, as the workshop publisher won't accept them.
 
 ## Usage
 Before BiValues can be used, a container and required listeners and bindings need to be created.
 
 ### Initialization
-On client, we can do this setup just before we build the UI or entities that are used for bindings. We also need to have the player entity available, so we will do the initialization in _InitPostEntity_.
+On client, we can do this setup just before we build the UI or entities that are used for bindings. _InitPostEntity_ is a good place to setup as we have the player entity available if we need it.
 
 ```lua
 hook.Add("InitPostEntity", "BiValuesSetup", function()
@@ -34,7 +41,7 @@ hook.Add("InitPostEntity", "BiValuesSetup", function()
 
 	-- Default values to set when creating the container.
 	local defaults = {foo = "bar", hammertime = false};
-	local bivalues = BiValues.New(player, "Example", {AutoApply = true, UseSync = true}, defaults);
+	local bivalues = BiValues.New("Example", {IsPrivate = true, AutoApply = true, UseSync = true}, defaults);
 
 	-- Adding a listener to a variable
 	bivalues:_Listen("hammertime", function(container, key, value)
@@ -51,14 +58,14 @@ hook.Add("InitPostEntity", "BiValuesSetup", function()
 end);
 ```
 
-On server, we need to initialize the container when the player has first spawned, to ensure we have the player entity available.
+On server, we can use _PlayerInitialSpawn_ for setup if we need a player (or players) for our container.
 
 ```lua
 hook.Add("PlayerInitialSpawn", "BiValuesSetup", function(player)
 
     -- Default values to set when creating the container.
 	local defaults = {foo = "bar", hammertime = false};
-	local bivalues = BiValues.New(player, "Example", {AutoApply = true, UseSync = true}, defaults);
+	local bivalues = BiValues.New(player, "Example", {IsPrivate = true, AutoApply = true, UseSync = true}, defaults);
 
 	-- Adding a listener to a variable
 	bivalues:_Listen("hammertime", function(container, key, value)
@@ -113,7 +120,7 @@ concommand.Add("bv_test", function(player, cmd, args)
 
     local bivalues = player.ExampleData;
 
-	-- Reading variables
+	-- Getting variables
 	if bivalues.hammertime then
 		print("Can't touch this");
 	end
@@ -129,14 +136,14 @@ end);
 ```
 
 ### Putting it all together
-You can try combining all of the things above to get a working example of BiValues, and also look into _example.lua_ for a more complete example.
+You can try combining all of the things above to get a working example of BiValues. The _example.lua_ script is a kind of a Advanced Bone tool rip-off that uses BiValues, so you can look into it for a more complete example of using BiValues.
 
 ## Function variables
 You can assing functions as variables into containers. These functions can then be called using the container's _\_Call_ function, or through a binding, like the Button binding. This call then triggers listeners that are listening for the variable, and also calls the function on both server and client if syncrhonizing is enabled.
 
 ```lua
 local function Foo(container, key)
-    local player = container._Player;
+    local player = container:_GetPlayer();
 	print("Foo called for " .. player:Nick());
 end
 
@@ -147,7 +154,7 @@ hook.Add("InitPostEntity", "BiValuesSetup", function()
 	local player = LocalPlayer();
 
 	local defaults = {Foo = Foo};
-	local bivalues = BiValues.New(player, "Example", {AutoApply = true, UseSync = true}, defaults);
+	local bivalues = BiValues.New("Example", {IsPrivate = true, AutoApply = true, UseSync = true}, defaults);
 
 	bivalues:_Listen("Foo", function(container, key, value)
 		print("Foo was called");
@@ -166,7 +173,7 @@ elseif SERVER then
 hook.Add("PlayerInitialSpawn", "BiValuesSetup", function(player)
 
 	local defaults = {Foo = Foo};
-	local bivalues = BiValues.New(player, "Example", {AutoApply = true, UseSync = true}, defaults);
+	local bivalues = BiValues.New(player, "Example", {IsPrivate = true, AutoApply = true, UseSync = true}, defaults);
 
 	bivalues:_Listen("Foo", function(container, key, value)
 		print("Foo was called");
