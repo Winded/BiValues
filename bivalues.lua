@@ -121,6 +121,14 @@ function BV.RegisterBindType(name, meta)
 	BV.BindTypes[name] = meta;
 end
 
+function BV.BindToConVar(container, key, convar, settings)
+	container:_BindToConVar(key, convar, settings);
+end
+
+function BV.UnBindConVar(container, key, convar)
+	container:_UnBindConVar(key, convar);
+end
+
 function BV:_GetPlayers()
 	if CLIENT then
 		return {LocalPlayer()};
@@ -143,9 +151,11 @@ function BV:_Bind(entity, key, type, settings)
 
 	entity.Bindings = entity.Bindings or {};
 
-	if entity.Bindings[key] then
-		ErrorNoHalt("Entity already has a binding for " .. key .. "!");
-		return;
+	for _, binding in pairs(self._Bindings) do
+		if binding.Entity == entity and binding.Key == key then
+			ErrorNoHalt("Binding " .. entity .. " -> " .. self._ID .. " -> " .. key .. " already exists");
+			return;
+		end
 	end
 
 	if not BV.BindTypes[type] then
@@ -160,7 +170,32 @@ function BV:_Bind(entity, key, type, settings)
 	b.Key = key;
 	b.Settings = settings or {};
 
-	entity.Bindings[key] = b;
+	table.insert(entity.Bindings, b);
+	table.insert(self._Bindings, b);
+
+	b:Init();
+	local value = self[key];
+	if value ~= nil then
+		b:SetValue(value);
+	end
+
+end
+
+function BV:_BindToConVar(key, convar, settings)
+
+	for _, binding in pairs(self._Bindings) do
+		if type(binding.Entity) == "ConVar" and binding.Entity:GetName() == convar:GetName() and binding.Key == key then
+			ErrorNoHalt("Binding " .. convar:GetName() .. " -> " .. self._ID .. " -> " .. key .. " already exists");
+			return;
+		end
+	end
+
+	local bindMeta = BV.BindTypes["ConVar"];
+	local b = setmetatable({}, bindMeta);
+	b.Container = self;
+	b.Entity = convar;
+	b.Key = key;
+	b.Settings = settings or {};
 	table.insert(self._Bindings, b);
 
 	b:Init();
@@ -176,7 +211,17 @@ function BV:_UnBind(entity, key)
 		if binding.Entity == entity and binding.Key == key then
 			binding:Remove();
 			table.RemoveByValue(self._Bindings, binding);
-			entity.Bindings[key] = nil;
+			table.RemoveByValue(entity.Bindings, binding);
+			return;
+		end
+	end
+end
+
+function BV:_UnBindConVar(key, convar)
+	for _, binding in pairs(self._Bindings) do
+		if type(binding.Entity) == "ConVar" and binding.Entity:GetName() == convar:GetName() and binding.Key == key then
+			binding:Remove();
+			table.RemoveByValue(self._Bindings, binding);
 			return;
 		end
 	end
@@ -252,6 +297,14 @@ function BV:_Apply(fromBinding, fromSync)
 		end
 	end
 
+end
+
+-- Call the given function, and apply changes afterwards. Good for changing many values while AutoApply is enabled
+function BV:_ApplyBulk(func)
+	self._AutoApply = false;
+	func(self);
+	self:_Apply();
+	self._AutoApply = true;
 end
 
 -- Call a function from _Values and if sync is enabled, call it remotely as well
@@ -549,6 +602,94 @@ function LVSELECT:SetValue(value)
 end
 BV.RegisterBindType("ListViewSelect", LVSELECT);
 
+local COMBOBOX = {};
+function COMBOBOX:Init()
+	-- Do nothing
+end
+function COMBOBOX:Remove()
+	-- Do nothing
+end
+function COMBOBOX:SetValue(value)
+	local control = self.Entity;
+	control:Clear();
+	if value == nil then
+		return;
+	end
+	for k, v in pairs(value) do
+		control:AddChoice(k, v);
+	end
+end
+BV.RegisterBindType("ComboBox", COMBOBOX);
+
+local CBSELECT = setmetatable({}, VALUE);
+function CBSELECT:Init()
+	local control = self.Entity;
+	control.OnSelect = function(control, index, text, data)
+		self:OnValueChanged(data);
+	end
+end
+function CBSELECT:Remove()
+	local control = self.Entity;
+	control.OnSelect = function() end
+end
+function CBSELECT:SetValue(value)
+	local control = self.Entity;
+	local func = control.OnSelect;
+	control.OnSelect = function() end
+	for idx, data in ipairs(control.Data) do
+		if data == value then
+			control:ChooseOptionID(idx);
+			break;
+		end
+	end
+	control.OnSelect = func;
+end
+BV.RegisterBindType("ComboBoxSelect", CBSELECT);
+
+local CONVAR = setmetatable({}, VALUE);
+function CONVAR:Init()
+	local convar = self.Entity;
+	if type(convar) ~= "ConVar" then
+		error("ConVar bind not bound to a convar!");
+	end
+	self:OnValueChanged(convar:GetString());
+	self.CallbackIdentifier = convar:GetName() .. math.random(1, 10000);
+	cvars.AddChangeCallback(convar:GetName(), function(name, oldValue, newValue)
+		self:OnValueChanged(newValue);
+	end, self.CallbackIdentifier);
+end
+function CONVAR:Remove()
+	local convar = self.Entity;
+	cvars.RemoveChangeCallback(convar:GetName(), self.CallbackIdentifier);
+end
+function CONVAR:OnValueChanged(value)
+	local container = self.Container;
+	local key = self.Key;
+	local valueType = self.Settings.ValueType or "string";
+	if valueType == "number" then
+		value = tonumber(value);
+	elseif valueType == "boolean" then
+		value = tobool(value);
+	else
+		value = tostring(value);
+	end
+	if not value then
+		return;
+	end
+	container:_ApplyFromBind(self, key, value);
+end
+function CONVAR:SetValue(value)
+	local convar = self.Entity;
+	cvars.RemoveChangeCallback(convar:GetName(), self.CallbackIdentifier);
+	if value then
+		RunConsoleCommand(convar:GetName(), value);
+	end
+	cvars.AddChangeCallback(convar:GetName(), function(name, oldValue, newValue)
+		self:OnValueChanged(newValue);
+	end, self.CallbackIdentifier);
+end
+BV.RegisterBindType("ConVar", CONVAR);
+
 BV.ValueBind = VALUE;
 BV.NumberBind = NUMBER;
 BV.TextBind = TEXT;
@@ -558,6 +699,9 @@ BV.VisibilityBind = VISIBILITY;
 BV.CheckBoxBind = CHECKBOX;
 BV.ListViewBind = LISTVIEW;
 BV.ListViewSelectBind = LVSELECT;
+BV.ComboBoxBind = COMBOBOX;
+BV.ComboBoxSelectBind = CBSELECT;
+BV.ConVarType = CONVAR;
 
 ---
 -- Meta table setup

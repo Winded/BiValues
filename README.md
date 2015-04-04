@@ -1,12 +1,12 @@
 BiValues
 ========
-BiValues is a script for Garry's Mod designed to both syncrhonize variables between client and server as well as 
-use two-directional binding and variable change callbacks. By default, it supports bindings for some VGUI elements, 
+BiValues is a script for Garry's Mod designed to both synchronize variables between client and server as well as 
+use two-directional binding and variable change callbacks. By default, it supports bindings for convars and some VGUI elements, 
 such as text entries, sliders, buttons and labels.
 
 For example, you can use BiValues to bind a variable to a slider, and the variable will be updated when the slider is moved. 
-When the variable is changed from elsewhere, the change will be applied to the slider. This variable can also be synchronized with 
-the server, so you can have consistent variables between the slider, clientside code and serverside code.
+When the variable is changed from code, the change will be applied to the slider. This variable can also be synchronized with the server, so you can have consistent variables between the slider, clientside code and serverside code. 
+In addition, you could also bind a convar to the variable, and now, when you change the variable in code, it will be applied to the slider and the convar. When you change the convar, it will be applied to the variable and the slider. You might guess what happens when you move the slider around.
 
 ## How it works
 The BiValues framework consists of three different object types: containers, bindings and listeners.
@@ -21,6 +21,9 @@ Starting from version 0.2, containers are not player-specific anymore, and are s
 If you set _IsPrivate_ setting to true on a container, and set a single player as the owner of the container, the container becomes "private" meaning the ID of the container is appended with the SteamID of the player, making sure the container is unique and for that player only. You can also do this manually, but the _IsPrivate_ setting can be used for convenience.
 
 On clientside, the ownership of a container is irrelevant and not used, so the _BiValues.New_ function does not take the _players_ parameter.
+
+### ConVar bindings
+Since convars do not have a singular object present in the lua environment, convar bindings need to be done with _BiValues.BindToConVar_ function. Similarly, a convar can be unbound with _BiValues.UnBindConVar_. When you create your convars, you can use the FCVAR_ARCHIVE flag to make the game save the convar values. These values, in turn, will be loaded into BiValues when the binding is done. Keep in mind that you need to bind convars to a key AFTER all other bindings for the loading to work.
 
 ### Visual representation
 TBD
@@ -136,7 +139,7 @@ end);
 ```
 
 ### Putting it all together
-You can try combining all of the things above to get a working example of BiValues. The _example.lua_ script is a kind of a Advanced Bone tool rip-off that uses BiValues, so you can look into it for a more complete example of using BiValues.
+You can try combining all of the things above to get a working example of BiValues. The _example.lua_ script is a kind of a Advanced Bone tool copy that uses BiValues, so you can look into it for a more complete example of using BiValues.
 
 ## Function variables
 You can assing functions as variables into containers. These functions can then be called using the container's _\_Call_ function, or through a binding, like the Button binding. This call then triggers listeners that are listening for the variable, and also calls the function on both server and client if syncrhonizing is enabled.
@@ -204,7 +207,15 @@ For best understanding of default bind types, please look into the code itself. 
  - **Visibility** - Binding for a boolean variable to show/hide VGUI panels.
  - **CheckBox** - Binding for _DCheckBox_
  - **ListView** - Binding for the contents of _DListView_. This should be a table either in form _{"line1", "line2"}_ or _{{"column1", "column2"}, {"column1", "column2"}}_
- - **ListViewResult** - Binding for the selected item of _DListView_
+ - **ListViewSelect** - Binding for the selected item of _DListView_
+ - **ComboBox** - Binding for the contents of _DComboBox_. This should be a table in form _{displayName = value}_
+ - **ComboBoxSelect** - Binding for the selected item of _DComboBox_
 
 ### Creating custom types
-TBD
+Custom types can be registered with _BiValues.RegisterBindType_. There are some function that are required for bindings to have.
+
+ - **Init()** - Called when the binding is created. This is where you should evaluate settings provided for the binding, and also add callback hooks
+ - **Remove()** - Called when the binding is removed (unbound). You should remove your callback hooks here
+ - **SetValue(value)** - Called when the value is changed from elsewhere than the binding itself. You should handle applying the value change to your bound entity/element here
+
+You can better understand how bindings work by looking at the default bindings.
