@@ -24,12 +24,15 @@ THE SOFTWARE.
 
 --]]
 
+if _G["BiValues"] then return; end
+
 ---
 -- BiValues table definition
 ---
 
 local BV = {};
 BV.BindTypes = {};
+BV.Containers = {};
 
 BV.__index = function(table, key)
 	if type(key) == "string" and string.sub(key, 1, 1) == "_" then
@@ -61,13 +64,31 @@ BV.__newindex = function(table, key, value)
 	end
 end
 
-function BV.New(player, id, settings, defaultValues)
+function BV.New(players, id, settings, defaultValues)
+
+	-- On clientside, we don't need the players parameter, so we shift the parameters.
+	if CLIENT then
+		defaultValues = settings;
+		settings = id;
+		id = players;
+		players = LocalPlayer();
+	end
+
+	-- Check parameters
+	if type(players) == "Player" then
+		players = {players};
+	end
+
+	if settings.IsPrivate and players and #players == 1 then
+		id = id .. players[1]:SteamID64();
+	end
 
 	local bv = setmetatable({}, BV);
 	bv._ID = id;
-	bv._Player = player;
+	bv._Players = players;
 
 	settings = settings or {};
+	bv._ReadOnly = settings.ReadOnly or false;
 	bv._AutoApply = settings.AutoApply or false;
 	bv._UseSync = settings.UseSync or false;
 	bv._RequireValue = settings.RequireValue or false;
@@ -83,8 +104,7 @@ function BV.New(player, id, settings, defaultValues)
 	bv._Bindings = {};
 	bv._Listeners = {};
 
-	player.BiValueContainers = player.BiValueContainers or {};
-	player.BiValueContainers[id] = bv;
+	BV.Containers[id] = bv;
 
 	return bv;
 
@@ -93,6 +113,13 @@ end
 function BV.RegisterBindType(name, meta)
 	meta.__index = meta;
 	BV.BindTypes[name] = meta;
+end
+
+function BV:_GetPlayers()
+	if CLIENT then
+		return {LocalPlayer()};
+	end
+	return self._Players or player.GetAll();
 end
 
 function BV:_Bind(entity, key, type, settings)
@@ -150,6 +177,7 @@ function BV:_DontListen(listener)
 	table.RemoveByValue(self._Listeners, listener);
 end
 
+-- Call __newindex so that the given key is placed on _NewValues, marking it as changed.
 function BV:_MarkChanged(key)
 	self[key] = self[key];
 end
@@ -201,7 +229,7 @@ function BV:_Apply(fromBinding, fromSync)
 		net.WriteTable(syncValues);
 
 		if SERVER then
-			net.Send(self._Player);
+			net.Send(self:_GetPlayers());
 		else
 			net.SendToServer();
 		end
@@ -231,7 +259,7 @@ function BV:_Call(key, fromSync)
 		net.WriteString(key);
 
 		if SERVER then
-			net.Send(self._Player);
+			net.Send(self:_GetPlayers());
 		else
 			net.SendToServer();
 		end
@@ -248,12 +276,37 @@ function BV._RecvSync(length, player)
 	local id = net.ReadString();
 	local newValues = net.ReadTable();
 
-	if not player.BiValueContainers or not player.BiValueContainers[id] then
+	local container = BV.Containers[id];
+	if not container then
 		ErrorNoHalt("Failed to synchronize; BiValue container not found!");
 		return;
 	end
 
-	local container = player.BiValueContainers[id];
+	if SERVER then
+
+		if container._ReadOnly then
+			Msg("Received call request to read-only container " .. container._ID .. " from player " .. player);
+			return;
+		end
+
+		local players = table.Copy(container:_GetPlayers());
+		
+		if players and not table.HasValue(players, player)  then
+			Msg("Unauthorized access to container " .. container._ID .. " from player " .. player);
+			return;
+		end
+
+		-- Broadcast call to any other players owning the container
+		table.RemoveByValue(players, player);
+		if #players > 0 then
+			net.Start("BiValuesSync");
+			net.WriteString(container._ID);
+			net.WriteTable(newValues);
+			net.Send(players);
+		end
+
+	end
+
 	container:_ApplySynced(newValues);
 
 end
@@ -267,12 +320,37 @@ function BV._RecvCall(length, player)
 	local id = net.ReadString();
 	local key = net.ReadString();
 
-	if not player.BiValueContainers or not player.BiValueContainers[id] then
-		ErrorNoHalt("Failed remote call; BiValue container not found!");
+	local container = BV.Containers[id];
+	if not container then
+		ErrorNoHalt("Failed to synchronize; BiValue container not found!");
 		return;
 	end
 
-	local container = player.BiValueContainers[id];
+	if SERVER then
+
+		if container._ReadOnly then
+			Msg("Received call request to read-only container " .. container._ID .. " from player " .. player);
+			return;
+		end
+
+		local players = table.Copy(container:_GetPlayers());
+
+		if players and not table.HasValue(players, player)  then
+			Msg("Unauthorized access to container " .. container._ID .. " from player " .. player);
+			return;
+		end
+
+		-- Broadcast call to any other players owning the container
+		table.RemoveByValue(players, player);
+		if #players > 0 then
+			net.Start("BiValuesCall");
+			net.WriteString(container._ID);
+			net.WriteString(key);
+			net.Send(players);
+		end
+
+	end
+
 	container:_Call(key, true);
 
 end
