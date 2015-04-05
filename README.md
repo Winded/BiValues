@@ -219,3 +219,6 @@ Custom types can be registered with _BiValues.RegisterBindType_. There are some 
  - **SetValue(value)** - Called when the value is changed from elsewhere than the binding itself. You should handle applying the value change to your bound entity/element here
 
 You can better understand how bindings work by looking at the default bindings.
+
+## Conflicting addons
+It's possible that other addons a user has installed are using BiValues. This wouldn't be a problem if they used the exact same version as your addon, but they probably don't. To avoid conflicts, instead of using the _BiValues_ global variable, use _BiValuesV000_, replacing the zeroes with the version of BiValues that you are using. This way, you won't be using a different version of BiValues than you think and your code won't break.

@@ -24,7 +24,7 @@ THE SOFTWARE.
 
 --]]
 
-if _G["BiValues"] then return; end
+local VERSION = "021";
 
 ---
 -- BiValues table definition
@@ -737,4 +737,5 @@ end
 ---
 
 AddCSLuaFile();
+_G["BiValuesV" .. VERSION] = BV;
 _G.BiValues = BV;
