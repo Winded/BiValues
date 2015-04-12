@@ -221,4 +221,4 @@ Custom types can be registered with _BiValues.RegisterBindType_. There are some 
 You can better understand how bindings work by looking at the default bindings.
 
 ## Conflicting addons
-It's possible that other addons a user has installed are using BiValues. This wouldn't be a problem if they used the exact same version as your addon, but they probably don't. To avoid conflicts, instead of using the _BiValues_ global variable, use _BiValuesV000_, replacing the zeroes with the version of BiValues that you are using. This way, you won't be using a different version of BiValues than you think and your code won't break.
+It's possible that other addons a user has installed are using BiValues. This wouldn't be a problem if they used the exact same version as your addon, but they probably don't. To avoid conflicts, instead of using the _BiValues_ global variable, use _BiValuesV000_, replacing the zeroes with the version of BiValues that you are using. You should also put the _bivalues.lua_ script to a unique path, e.g. _lua/myaddon/bivalues_. This way, you won't be using a different version of BiValues than you think and your code won't break.

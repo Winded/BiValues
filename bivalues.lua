@@ -28,6 +28,8 @@ local VERSION = "022";
 if _G["BiValuesV" .. VERSION] then
 	return;
 end
+local SyncNetID = "BiValuesSync" .. VERSION;
+local CallNetID = "BiValuesCall" .. VERSION;
 
 ---
 -- BiValues table definition
@@ -281,7 +283,7 @@ function BV:_Apply(fromBinding, fromSync)
 	end
 
 	if not fromSync and self._UseSync then
-		net.Start("BiValuesSync");
+		net.Start(SyncNetID);
 
 		net.WriteString(self._ID);
 
@@ -327,7 +329,7 @@ function BV:_Call(key, fromSync)
 	end
 
 	if not fromSync and self._UseSync then
-		net.Start("BiValuesCall");
+		net.Start(CallNetID);
 
 		net.WriteString(self._ID);
 		net.WriteString(key);
@@ -373,7 +375,7 @@ function BV._RecvSync(length, player)
 		-- Broadcast call to any other players owning the container
 		table.RemoveByValue(players, player);
 		if #players > 0 then
-			net.Start("BiValuesSync");
+			net.Start(SyncNetID);
 			net.WriteString(container._ID);
 			net.WriteTable(newValues);
 			net.Send(players);
@@ -417,7 +419,7 @@ function BV._RecvCall(length, player)
 		-- Broadcast call to any other players owning the container
 		table.RemoveByValue(players, player);
 		if #players > 0 then
-			net.Start("BiValuesCall");
+			net.Start(CallNetID);
 			net.WriteString(container._ID);
 			net.WriteString(key);
 			net.Send(players);
@@ -430,11 +432,11 @@ function BV._RecvCall(length, player)
 end
 
 if SERVER then
-	util.AddNetworkString("BiValuesSync");
-	util.AddNetworkString("BiValuesCall");
+	util.AddNetworkString(SyncNetID);
+	util.AddNetworkString(CallNetID);
 end
-net.Receive("BiValuesSync", BV._RecvSync);
-net.Receive("BiValuesCall", BV._RecvCall);
+net.Receive(SyncNetID, BV._RecvSync);
+net.Receive(CallNetID, BV._RecvCall);
 
 ---
 -- Default bind types
