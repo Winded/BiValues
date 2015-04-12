@@ -24,7 +24,10 @@ THE SOFTWARE.
 
 --]]
 
-local VERSION = "021";
+local VERSION = "022";
+if _G["BiValuesV" .. VERSION] then
+	return;
+end
 
 ---
 -- BiValues table definition
@@ -97,6 +100,7 @@ function BV.New(players, id, settings, defaultValues)
 	bv._ReadOnly = settings.ReadOnly or false;
 	bv._AutoApply = settings.AutoApply or false;
 	bv._UseSync = settings.UseSync or false;
+	bv._SyncIgnore = settings.SyncIgnore or {};
 	bv._RequireValue = settings.RequireValue or false;
 
 	bv._Values = {};
@@ -284,7 +288,7 @@ function BV:_Apply(fromBinding, fromSync)
 		local syncValues = {};
 		for key, value in pairs(values) do
 			local typeid = TypeID(value);
-			if net.WriteVars[typeid] then
+			if not table.HasValue(self._SyncIgnore, key) and net.WriteVars[typeid] then
 				syncValues[key] = value;
 			end
 		end
